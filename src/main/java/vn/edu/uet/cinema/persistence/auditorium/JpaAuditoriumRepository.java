@@ -12,6 +12,8 @@ import vn.edu.uet.cinema.business.ConflictException;
 import vn.edu.uet.cinema.business.auditorium.Auditorium;
 import vn.edu.uet.cinema.business.auditorium.AuditoriumNameTakenException;
 import vn.edu.uet.cinema.business.auditorium.AuditoriumRepository;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 
 @Repository
 class JpaAuditoriumRepository implements AuditoriumRepository {
@@ -29,6 +31,7 @@ class JpaAuditoriumRepository implements AuditoriumRepository {
 	}
 
 	@Override
+	@Cacheable(cacheNames = "auditoriumById", key = "#p0", unless = "#result == null")
 	@Transactional(readOnly = true)
 	public Optional<Auditorium> findById(UUID id) {
 		return jpa.findById(id).map(AuditoriumEntity::toAuditorium);
@@ -45,6 +48,7 @@ class JpaAuditoriumRepository implements AuditoriumRepository {
 	}
 
 	@Override
+	@CacheEvict(cacheNames = "auditoriumById", key = "#p0.id()")
 	@Transactional
 	public Auditorium save(Auditorium auditorium) {
 		try {
@@ -58,6 +62,7 @@ class JpaAuditoriumRepository implements AuditoriumRepository {
 	}
 
 	@Override
+	@CacheEvict(cacheNames = "auditoriumById", key = "#p0")
 	@Transactional
 	public void deleteById(UUID id) {
 		try {

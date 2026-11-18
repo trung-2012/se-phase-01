@@ -52,6 +52,12 @@ class BookingApiTest {
 		UUID showtimeId = showtime(hall);
 		Seat a1 = hall.seats().get(0);
 		Seat b1 = hall.seats().get(2);
+        // Warm the auditorium cache before booking
+        mvc.perform(get("/api/showtimes/" + showtimeId + "/seats"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[*].status")
+                .value(contains("AVAILABLE", "AVAILABLE",
+                                "AVAILABLE", "AVAILABLE")));
 
 		mvc.perform(post("/api/bookings").header("Authorization", "Bearer " + customer())
 				.contentType(MediaType.APPLICATION_JSON).content(bookingJson(showtimeId, a1.id(), b1.id())))
