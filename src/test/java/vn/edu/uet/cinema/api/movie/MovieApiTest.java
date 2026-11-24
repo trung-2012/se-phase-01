@@ -20,6 +20,10 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import vn.edu.uet.cinema.TestcontainersConfiguration;
+import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import java.util.ArrayList;
+import java.util.UUID;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -128,6 +132,102 @@ class MovieApiTest {
 			.andExpect(status().isForbidden())
 			.andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
 	}
+
+    @Test
+    void moviePaginationReturnsCorrectPagesAndHeaders() throws Exception {
+        String admin = token();
+        List<String> createdIds = new ArrayList<>();
+
+        String initialResponse = mvc.perform(get("/api/movies"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse()
+                .getHeader("X-Total-Count");
+
+        long initialCount = Long.parseLong(initialResponse);
+
+        try {
+            // Create five movies for pagination testing.
+            for (int i = 0; i < 5; i++) {
+                String created = mvc.perform(
+                        post("/api/movies")
+                                .header("Authorization", "Bearer " + admin)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(movieJson("Pagination Test " + i, "P"))
+                )
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+                createdIds.add(JsonPath.read(created, "$.id"));
+            }
+
+            long total = initialCount + 5;
+            long totalPages = (total + 1) / 2;
+
+            List<UUID> returnedIds = new ArrayList<>();
+
+            // Verify the first three pages.
+            for (int page = 0; page < 3; page++) {
+                String response = mvc.perform(
+                        get("/api/movies")
+                                .param("page", String.valueOf(page))
+                                .param("size", "2")
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize((int) Math.min(2L, total - (long) page * 2))))
+                .andExpect(header().string(
+                        "X-Total-Count", String.valueOf(total)))
+                .andExpect(header().string(
+                        "X-Total-Pages", String.valueOf(totalPages)))
+                .andExpect(header().string(
+                        "X-Page", String.valueOf(page)))
+                .andExpect(header().string("X-Page-Size", "2"))
+                .andReturn().getResponse().getContentAsString();
+
+                List<String> ids = JsonPath.read(response, "$[*].id");
+
+                ids.stream()
+                        .map(UUID::fromString)
+                        .forEach(returnedIds::add);
+            }
+
+            // No duplicate records and stable ascending order.
+			assertThat(returnedIds)
+			.doesNotHaveDuplicates()
+			.isSortedAccordingTo(
+					java.util.Comparator.comparing(UUID::toString)
+			);
+
+            // A page beyond the end must be empty.
+            mvc.perform(get("/api/movies")
+                            .param("page", String.valueOf(total))
+                            .param("size", "2"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$", hasSize(0)));
+
+        } finally {
+            // Clean up only the movies created by this test.
+            for (String id : createdIds) {
+                mvc.perform(delete("/api/movies/" + id)
+                                .header("Authorization", "Bearer " + admin))
+                        .andExpect(status().isNoContent());
+            }
+        }
+    }
+
+    @Test
+    void moviePaginationRejectsInvalidParameters() throws Exception {
+        mvc.perform(get("/api/movies").param("page", "-1"))
+                .andExpect(status().isBadRequest());
+
+        mvc.perform(get("/api/movies").param("size", "0"))
+                .andExpect(status().isBadRequest());
+
+        mvc.perform(get("/api/movies").param("size", "101"))
+                .andExpect(status().isBadRequest());
+
+        mvc.perform(get("/api/movies").param("page", "abc"))
+                .andExpect(status().isBadRequest());
+    }
 
 	private String token() throws Exception {
 		return token("admin@cinema.local", "admin12345");
