@@ -27,10 +27,18 @@ services:
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@cinema.local}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RATE_LIMIT_ENABLED: "${RATE_LIMIT_ENABLED:-true}"
+      RATE_LIMIT_MAX_REQUESTS: "${RATE_LIMIT_MAX_REQUESTS:-60}"
+      RATE_LIMIT_WINDOW_SECONDS: "${RATE_LIMIT_WINDOW_SECONDS:-60}"
+      RATE_LIMIT_TRUSTED_PROXY_IPS: "${CINEMA_NGINX_IP:-172.31.55.10}"
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
   
   app-2:
@@ -43,10 +51,18 @@ services:
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@cinema.local}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RATE_LIMIT_ENABLED: "${RATE_LIMIT_ENABLED:-true}"
+      RATE_LIMIT_MAX_REQUESTS: "${RATE_LIMIT_MAX_REQUESTS:-60}"
+      RATE_LIMIT_WINDOW_SECONDS: "${RATE_LIMIT_WINDOW_SECONDS:-60}"
+      RATE_LIMIT_TRUSTED_PROXY_IPS: "${CINEMA_NGINX_IP:-172.31.55.10}"
     depends_on:
       app:
         condition: service_started
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   nginx:
@@ -58,6 +74,9 @@ services:
     depends_on:
       - app
       - app-2
+    networks:
+      default:
+        ipv4_address: ${CINEMA_NGINX_IP:-172.31.55.10}
       
   redis:
     image: redis:7-alpine
@@ -67,6 +86,13 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       retries: 10
+
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${CINEMA_NETWORK_SUBNET:-172.31.55.0/24}
 
 volumes:
   pgdata:
