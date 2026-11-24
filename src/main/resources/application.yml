@@ -25,6 +25,12 @@ app:
   jwt:
     secret: ${JWT_SECRET}
 
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:false}
+    max-requests: ${RATE_LIMIT_MAX_REQUESTS:60}
+    window-seconds: ${RATE_LIMIT_WINDOW_SECONDS:60}
+    trusted-proxy-ips: ${RATE_LIMIT_TRUSTED_PROXY_IPS:}
+
 management:
   endpoints:
     web:
