@@ -1,3 +1,4 @@
+
 package vn.edu.uet.cinema.business.movie;
 
 import java.util.List;
@@ -6,11 +7,17 @@ import java.util.UUID;
 
 public interface MovieRepository {
 
-	List<Movie> findAll();
+    List<Movie> findAll();
 
-	Optional<Movie> findById(UUID id);
+    // Fetch only the requested page from the database.
+    List<Movie> findPage(int page, int size);
 
-	Movie save(Movie movie);
+    // Count all movies for pagination metadata.
+    long count();
 
-	void deleteById(UUID id);
+    Optional<Movie> findById(UUID id);
+
+    Movie save(Movie movie);
+
+    void deleteById(UUID id);
 }
